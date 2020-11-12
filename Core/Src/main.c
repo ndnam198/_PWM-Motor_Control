@@ -113,10 +113,10 @@ int main(void)
   MX_TIM3_Init();
   MX_TIM4_Init();
   MX_ADC1_Init();
-  MX_IWDG_Init();
+//  MX_IWDG_Init();
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
-  __RETARGET_INIT();
+  __RETARGET_INIT(DEBUG_USART);
   __PRINT_RESET_CAUSE();
   __MY_OFF_ALL_LED();
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);

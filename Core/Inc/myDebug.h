@@ -104,7 +104,7 @@ void vUARTSend(USART_TypeDef *USARTx, uint8_t *String);
 #endif
 
 /* Retarget debug USART to use printf */
-#define __RETARGET_INIT() (RetargetInit(&DEBUG_USART))
+#define __RETARGET_INIT(__USART_INSTANCE__) (RetargetInit(&(__USART_INSTANCE__)))
 
 #if (defined(USE_RETARGET_PRINTF)) /* USE_RETARGET_PRINTF */
 #define PRINTF               (printf)

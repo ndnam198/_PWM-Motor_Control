@@ -119,7 +119,7 @@ int main(void)
   MX_TIM4_Init();
   MX_ADC1_Init();
   // MX_IWDG_Init();
-  MX_RTC_Init();
+  // MX_RTC_Init();
   /* USER CODE BEGIN 2 */
   __RETARGET_INIT(DEBUG_USART);
   __PRINT_RESET_CAUSE();
@@ -129,13 +129,7 @@ int main(void)
   HAL_ADC_Start_DMA(&hadc1, (uint32_t *)adc_value,
                     NUMBER_OF_ELEMENT(adc_value));
 
-  time_stamp.Hours = 0x01;
-  time_stamp.Minutes = 0x2F;
-  time_stamp.Seconds = 0x00;
-  if (HAL_RTC_SetTime(&hrtc, &time_stamp, RTC_FORMAT_BIN) != HAL_OK)
-  {
-    _Error_Handler(__FILE__, __LINE__);
-  }
+ 
   /* USER CODE END 2 */
 
   /* Infinite loop */

@@ -22,6 +22,7 @@
 #include "adc.h"
 #include "dma.h"
 #include "iwdg.h"
+#include "rtc.h"
 #include "tim.h"
 #include "usart.h"
 #include "gpio.h"
@@ -36,6 +37,7 @@
 //#include "myRingBuffer.h"
 //#include "myRTOSaddons.h"
 #include "retarget.h"
+#include "time.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -59,6 +61,11 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
+volatile int32_t rotate_direction = 1;
+volatile uint32_t motor_select = 1;
+
+static RTC_TimeTypeDef time_stamp = {0};
+
 uint16_t adc_value[3];
 uint8_t speed = 0;
 /* USER CODE END PV */
@@ -69,16 +76,14 @@ void SystemClock_Config(void);
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin);
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim);
 void _Error_Handler(char *file, int line);
-void motorControl(uint32_t speed, int32_t rotate_direction, uint32_t motor_select);
+void motorControl(uint32_t speed, int32_t rotate_direction,
+                  uint32_t motor_select);
 void motorHalt(uint32_t motor_select);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-volatile int32_t rotate_direction = 1;
-volatile uint32_t motor_select = 1;
-volatile uint32_t button_center_state = 0;
-volatile uint32_t button_down_state = 0;
+
 /* USER CODE END 0 */
 
 /**
@@ -113,8 +118,8 @@ int main(void)
   MX_TIM3_Init();
   MX_TIM4_Init();
   MX_ADC1_Init();
-//  MX_IWDG_Init();
-  MX_TIM2_Init();
+  // MX_IWDG_Init();
+  MX_RTC_Init();
   /* USER CODE BEGIN 2 */
   __RETARGET_INIT(DEBUG_USART);
   __PRINT_RESET_CAUSE();
@@ -123,6 +128,14 @@ int main(void)
   HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_3);
   HAL_ADC_Start_DMA(&hadc1, (uint32_t *)adc_value,
                     NUMBER_OF_ELEMENT(adc_value));
+
+  time_stamp.Hours = 0x01;
+  time_stamp.Minutes = 0x2F;
+  time_stamp.Seconds = 0x00;
+  if (HAL_RTC_SetTime(&hrtc, &time_stamp, RTC_FORMAT_BIN) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -131,11 +144,13 @@ int main(void)
   while (1)
   {
     newline;
+    vTimeStamp(HAL_GetTick());
     PRINT_VAR((uint32_t)adc_value[0]);
     speed = (int)(((float)adc_value[0] / 4096) * TIM_PWM_OVERFLOW_VALUE);
     motorControl(speed, rotate_direction, motor_select);
     __MY_TOGGLE_LED(LED_2);
-    HAL_Delay(300);
+    HAL_RTC_GetTime(&hrtc, &time_stamp, RTC_FORMAT_BIN);
+    HAL_Delay(500);
   }
   /* USER CODE END WHILE */
 
@@ -180,7 +195,8 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
-  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_ADC;
+  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_RTC | RCC_PERIPHCLK_ADC;
+  PeriphClkInit.RTCClockSelection = RCC_RTCCLKSOURCE_HSE_DIV128;
   PeriphClkInit.AdcClockSelection = RCC_ADCPCLK2_DIV6;
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
   {
@@ -192,33 +208,32 @@ void SystemClock_Config(void)
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-  static uint8_t motor_select_statis, rotate_direction_status;
-
+  static uint8_t motor_state, rotate_state;
   /* Change rotate direction */
   if (GPIO_Pin == BT_DOWN_Pin)
   {
-    button_center_state = 1;
-    HAL_TIM_Base_Start_IT(&htim2);
-    // volatile uint32_t wait = 50000;
-    // while ((wait--) != 0)
-    // {
-    //   __NOP();
-    // }
-    // if (HAL_GPIO_ReadPin(BT_DOWN_GPIO_Port, BT_DOWN_Pin) == 0)
-    if (button_down_state == 1)
+    volatile uint32_t wait = 100000;
+    while ((wait--) != 0)
+    {
+      __NOP();
+    }
+    if (HAL_GPIO_ReadPin(BT_DOWN_GPIO_Port, BT_DOWN_Pin) == 0)
     {
       __MY_TOGGLE_LED(LED_3);
-
-      rotate_direction_status ^= 1;
-      if (rotate_direction_status == 1)
+      if (rotate_state == 0)
       {
-        rotate_direction = CLOCKWISE;
-      }
-      if (rotate_direction_status == 0)
-      {
+        rotate_state = 1;
         rotate_direction = ANTI_CLOCKWISE;
       }
+      else if (rotate_state == 1)
+      {
+        rotate_state = 0;
+        rotate_direction = CLOCKWISE;
+      }
+      PRINTF("--------------------\r\n");
+      PRINTF("BT_DOWN pressed\r\n");
       PRINT_VAR(rotate_direction);
+      PRINTF("--------------------\r\n");
     }
     else
     {
@@ -226,29 +241,53 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
     }
   }
 
-  /* Switch control to another motor */
+  /* Switch control between motor */
   if (GPIO_Pin == BT_CENTER_Pin)
   {
-    button_down_state = 1;
-    HAL_TIM_Base_Start_IT(&htim2);
-    // volatile uint32_t wait = 50000;
-    // while ((wait--) != 0)
-    // {
-    //   __NOP();
-    // }
-    // if (HAL_GPIO_ReadPin(BT_CENTER_GPIO_Port, BT_CENTER_Pin) == 0)
-    if (button_center_state == 1)
+    volatile uint32_t wait = 100000;
+    while ((wait--) != 0)
     {
-      motor_select_statis ^= 1;
-      if (motor_select_statis == 1)
+      __NOP();
+    }
+    if (HAL_GPIO_ReadPin(BT_CENTER_GPIO_Port, BT_CENTER_Pin) == 0)
+    {
+      if (motor_state == 0)
       {
-        motor_select = MOTOR_1;
-      }
-      if (motor_select_statis == 0)
-      {
+        motor_state = 1;
         motor_select = MOTOR_2;
       }
+      else if (motor_state == 1)
+      {
+        motor_state = 0;
+        motor_select = MOTOR_1;
+      }
+      PRINTF("--------------------\r\n");
+      PRINTF("BT_CENTER pressed\r\n");
       PRINT_VAR(motor_select);
+      PRINTF("--------------------\r\n");
+    }
+    else
+    {
+      return;
+    }
+  }
+
+  if (GPIO_Pin == BT_UP_Pin)
+  {
+    volatile uint32_t wait = 100000;
+    while ((wait--) != 0)
+    {
+      __NOP();
+    }
+    if (HAL_GPIO_ReadPin(BT_UP_GPIO_Port, BT_UP_Pin) == 0)
+    {
+
+      HAL_GPIO_TogglePin(L298N_RELAY_CONTROL_GPIO_Port,
+                         L298N_RELAY_CONTROL_Pin);
+      PRINTF("--------------------\r\n");
+      PRINTF("BT_UP pressed\r\n");
+      PRINTF("L298N power state changed\r\n");
+      PRINTF("--------------------\r\n");
     }
     else
     {
@@ -256,6 +295,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
     }
   }
 }
+/* Switch control to another motor */
 
 /**
  * @brief Control motor speed 
@@ -263,7 +303,8 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
  * @param speed equivalent to duty_cycle impose to motor, range from 1 -> TIM_PWM_OVERFLOW_VALUE
  * @param rotate_direction 
  */
-void motorControl(uint32_t speed, int32_t rotate_direction, uint32_t motor_select)
+void motorControl(uint32_t speed, int32_t rotate_direction,
+                  uint32_t motor_select)
 {
   if ((rotate_direction != 1) && (rotate_direction != -1))
   {
@@ -289,7 +330,8 @@ void motorControl(uint32_t speed, int32_t rotate_direction, uint32_t motor_selec
       PRINTF("MOTOR_1: Clockwise rotating\r\n");
       HAL_GPIO_WritePin(INT2_NO_PWM_MOTOR_1_GPIO_Port,
                         INT2_NO_PWM_MOTOR_1_Pin, GPIO_PIN_SET);
-      __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_3, TIM_PWM_OVERFLOW_VALUE - duty_cycle);
+      __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_3,
+                            TIM_PWM_OVERFLOW_VALUE - duty_cycle);
     }
     else if (rotate_direction == ANTI_CLOCKWISE)
     {
@@ -316,7 +358,8 @@ void motorControl(uint32_t speed, int32_t rotate_direction, uint32_t motor_selec
       PRINTF("MOTOR_2: Anti-Clockwise rotating\r\n");
       HAL_GPIO_WritePin(INT4_NO_PWM_MOTOR_2_GPIO_Port,
                         INT4_NO_PWM_MOTOR_2_Pin, GPIO_PIN_SET);
-      __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, TIM_PWM_OVERFLOW_VALUE - duty_cycle);
+      __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2,
+                            TIM_PWM_OVERFLOW_VALUE - duty_cycle);
     }
     break;
   }
@@ -362,31 +405,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     HAL_IncTick();
   }
   /* USER CODE BEGIN Callback 1 */
-  if (htim->Instance == TIM2)
-  {
-    ++count;
-    /* Check if button still pressed after 75ms ==> debounce */
-    if (count == 75)
-    {
-      if ((HAL_GPIO_ReadPin(BT_DOWN_GPIO_Port, BT_DOWN_Pin) == 0) && (button_center_state == 1))
-      { /* Button down pressed */
-        button_down_state = 1;
-        button_center_state = 0;
-        count = 0;
-        HAL_TIM_Base_Stop_IT(&htim2);
-        return;
-      }
 
-      if ((HAL_GPIO_ReadPin(BT_CENTER_GPIO_Port, BT_CENTER_Pin) == 0) && (button_down_state == 1))
-      { /* Button center pressed */
-        button_center_state = 1;
-        button_down_state = 0;
-        count = 0;
-        HAL_TIM_Base_Stop_IT(&htim2);
-        return;
-      }
-    }
-  }
   /* USER CODE END Callback 1 */
 }
 

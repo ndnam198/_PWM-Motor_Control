@@ -58,6 +58,8 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define L298N_RELAY_CONTROL_Pin GPIO_PIN_14
+#define L298N_RELAY_CONTROL_GPIO_Port GPIOC
 #define BT_UP_Pin GPIO_PIN_6
 #define BT_UP_GPIO_Port GPIOA
 #define BT_UP_EXTI_IRQn EXTI9_5_IRQn

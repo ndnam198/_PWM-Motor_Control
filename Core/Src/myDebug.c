@@ -144,3 +144,31 @@ __weak void _Error_Handler(char *file, int line)
 	}
 	/* USER CODE END Error_Handler_Debug */
 }
+
+void vTimeStamp(uint32_t now_tick)
+{
+	uint8_t second, minute, hour;
+	uint32_t millis_second, now_second;
+
+	/* ex: 450235ms => now_second = 450 */
+	now_second = now_tick / 1000;
+	/* ex: 450235ms => millis_second = 235 */
+	millis_second = now_tick - now_second * 1000;
+	/* ex: 450235ms => 450/60 = 7 */
+	minute = now_second / 60;
+	/* ex: 450235ms => 450 - 7*60 = 30 */
+	second = now_second - minute * 60;
+	if (minute > 60)
+	{
+		hour = minute / 60;
+	}
+	else
+	{
+		hour = 0;
+	}
+
+#if (defined(PRINT_DEBUG))
+	printf("[%02d:%02d:%02d.%03ld]\r\n", hour, minute, second, millis_second);
+#endif
+	return;
+}

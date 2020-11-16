@@ -112,25 +112,19 @@ const char *resetCauseGetName(reset_cause_t reset_cause)
 	return reset_cause_name;
 }
 
-void vIWDG_Init(IWDG_HandleTypeDef _hiwdg, uint32_t millis)
+void vIWDG_Init(IWDG_HandleTypeDef *hiwdg, uint32_t millis)
 {
 	uint32_t iwdg_timeout_millis = millis;
 
 	/* Select INDEPENDENT_WATCHDOG */
-	_hiwdg.Instance = IWDG;
+	hiwdg->Instance = IWDG;
 	/* Use prescaler LSI/128 */
-	_hiwdg.Init.Prescaler = IWDG_PRESCALER_128;
-	_hiwdg.Init.Reload = (int)(IWDG_RESOLUTION * ((float)iwdg_timeout_millis / PRESCALER_128_UPPER_LIMIT));
+	hiwdg->Init.Prescaler = IWDG_PRESCALER_128;
+	hiwdg->Init.Reload = (int)(IWDG_RESOLUTION * ((float)iwdg_timeout_millis / PRESCALER_128_UPPER_LIMIT));
 
-	if (HAL_IWDG_Init(&_hiwdg) != HAL_OK)
+	if (HAL_IWDG_Init(hiwdg) != HAL_OK)
 	{
 		_Error_Handler(__FILE__, __LINE__);
-	}
-	else
-	{
-#if defined(PRINT_DEBUG)
-		PRINTF("Watchdog Init with timeout = %ld\r\n", (uint32_t)millis);
-#endif
 	}
 }
 
@@ -161,6 +155,7 @@ void vTimeStamp(uint32_t now_tick)
 	if (minute > 60)
 	{
 		hour = minute / 60;
+		minute = minute - hour * 60;
 	}
 	else
 	{
@@ -172,3 +167,4 @@ void vTimeStamp(uint32_t now_tick)
 #endif
 	return;
 }
+

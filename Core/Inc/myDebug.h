@@ -94,7 +94,7 @@ __weak void _Error_Handler(char *file, int line);
 #define IWDG_RESOLUTION             (4095u)
 
 /* Init Independant watchdog timer */
-__weak void vIWDG_Init(IWDG_HandleTypeDef _hiwdg, uint32_t millis);
+__weak void vIWDG_Init(IWDG_HandleTypeDef* hiwdg, uint32_t millis);
 
 /********************************************************************************************************/
 /**
@@ -125,7 +125,15 @@ void vUARTSend(USART_TypeDef *USARTx, uint8_t *String);
 #if (defined(USE_RETARGET_PRINTF)) /* USE_RETARGET_PRINTF */
 #define PRINTF               (printf)
 #define PRINT_VAR(var)       (printf(#var " = %lu\r\n", var))
-#elif                              /* !USE_RETARGET_PRINTF */
+#define PRINT_ARRAY(array, offset)                              \
+	do                                                          \
+	{                                                           \
+		for (uint32_t i = offset; i < ARRAY_LENGTH(array); i++) \
+		{                                                       \
+			printf(#array "[%lu] = %lu\r\n", i, array[i]);       \
+		}                                                       \
+	} while (0)
+#elif /* !USE_RETARGET_PRINTF */
 #define PRINTF(str)          (vUARTSend(DEBUG_USART, (uint8_t *)str))
 #define PRINT_VAR(var)                                      \
     do                                                      \

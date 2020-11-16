@@ -42,7 +42,7 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-
+#define ADC_DATA_LENGTH (3U)
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -63,11 +63,12 @@
 /* USER CODE BEGIN PV */
 volatile int32_t rotate_direction = 1;
 volatile uint32_t motor_select = 1;
+volatile uint8_t speed = 0;
 
-static RTC_TimeTypeDef time_stamp = {0};
+uint16_t adc1_data_buffer[ADC_DATA_LENGTH];
 
-uint16_t adc_value[3];
-uint8_t speed = 0;
+/* SHT31 command */
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -76,9 +77,12 @@ void SystemClock_Config(void);
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin);
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim);
 void _Error_Handler(char *file, int line);
+/* Control motor */
 void motorControl(uint32_t speed, int32_t rotate_direction,
                   uint32_t motor_select);
+/* Stop motor */
 void motorHalt(uint32_t motor_select);
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -118,33 +122,40 @@ int main(void)
   MX_TIM3_Init();
   MX_TIM4_Init();
   MX_ADC1_Init();
-  // MX_IWDG_Init();
-  // MX_RTC_Init();
+//  MX_RTC_Init
   /* USER CODE BEGIN 2 */
+  vIWDG_Init(&hiwdg, 5000);
   __RETARGET_INIT(DEBUG_USART);
   __PRINT_RESET_CAUSE();
   __MY_OFF_ALL_LED();
-  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
-  HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_3);
-  HAL_ADC_Start_DMA(&hadc1, (uint32_t *)adc_value,
-                    NUMBER_OF_ELEMENT(adc_value));
 
- 
+  /* Start PWM on TIM3_CHANNEL_2 */
+  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
+  /* Start PWM on TIM4_CHANNEL_3 */
+  HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_3);
+  /* Start DMA */
+  HAL_ADC_Start_DMA(&hadc1, (uint32_t *)adc1_data_buffer,
+                    ARRAY_LENGTH(adc1_data_buffer));
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-
+  HAL_Delay(500);
   while (1)
   {
     newline;
     vTimeStamp(HAL_GetTick());
-    PRINT_VAR((uint32_t)adc_value[0]);
-    speed = (int)(((float)adc_value[0] / 4096) * TIM_PWM_OVERFLOW_VALUE);
+
+    /* ADC value */
+    PRINT_VAR((uint32_t)adc1_data_buffer[0]);
+    /* Remap speed value to be in range 0-100 */
+    speed = (int)(((float)adc1_data_buffer[0] / 4096) * TIM_PWM_OVERFLOW_VALUE);
+    /* Control motor speed accordingly */
     motorControl(speed, rotate_direction, motor_select);
     __MY_TOGGLE_LED(LED_2);
-    HAL_RTC_GetTime(&hrtc, &time_stamp, RTC_FORMAT_BIN);
-    HAL_Delay(500);
+    HAL_Delay(50);
+    HAL_IWDG_Refresh(&hiwdg);
   }
   /* USER CODE END WHILE */
 
@@ -391,7 +402,6 @@ void motorHalt(uint32_t motor_select)
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
   /* USER CODE BEGIN Callback 0 */
-  static volatile uint32_t count;
 
   /* USER CODE END Callback 0 */
   if (htim->Instance == TIM1)

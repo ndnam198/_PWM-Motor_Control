@@ -23,7 +23,7 @@
 #define IS_MY_STRING(src, des) ((strcmp((char *)src, des)) == 0 ? 1 : 0)
 
 /* Return the number of elements in an array */
-#define NUMBER_OF_ELEMENT(array) (sizeof(array) / sizeof(array[0]))
+#define ARRAY_LENGTH(array) (sizeof(array) / sizeof(array[0]))
 
 /* Return a random number between min and max value */
 #define RAND_U32(min, max) (ucRandomNumber(min, max))

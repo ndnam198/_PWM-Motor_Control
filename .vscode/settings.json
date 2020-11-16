@@ -1,6 +1,8 @@
 {
     "files.associations": {
         "iosfwd": "c",
-        "xutility": "c"
+        "xutility": "c",
+        "tuple": "cpp",
+        "utility": "cpp"
     }
 }

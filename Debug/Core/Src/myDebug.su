@@ -1,6 +1,6 @@
 myDebug.c:4:6:vUARTSend	8	static
 myDebug.c:36:15:resetCauseGet	16	static
 myDebug.c:81:13:resetCauseGetName	24	static
-myDebug.c:115:6:vIWDG_Init	40	static
-myDebug.c:137:13:_Error_Handler	16	static
-myDebug.c:148:6:vTimeStamp	40	static
+myDebug.c:115:6:vIWDG_Init	24	static
+myDebug.c:131:13:_Error_Handler	16	static
+myDebug.c:142:6:vTimeStamp	40	static

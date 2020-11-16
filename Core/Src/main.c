@@ -42,7 +42,6 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-#define ADC_DATA_LENGTH (3U)
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -51,11 +50,14 @@
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
+#define ADC_DATA_LENGTH (3U)
+#define BLINK_LED_FREQ (500U)
+#define TIM_PWM_OVERFLOW_VALUE (100U)
+
 #define MOTOR_1 (1U)
 #define MOTOR_2 (2U)
 #define CLOCKWISE (1)
 #define ANTI_CLOCKWISE (-1)
-#define TIM_PWM_OVERFLOW_VALUE (100U)
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
@@ -67,6 +69,7 @@ volatile uint8_t speed = 0;
 
 uint16_t adc1_data_buffer[ADC_DATA_LENGTH];
 
+uint32_t prev_time_blinkled = 0;
 /* SHT31 command */
 
 /* USER CODE END PV */
@@ -122,7 +125,7 @@ int main(void)
   MX_TIM3_Init();
   MX_TIM4_Init();
   MX_ADC1_Init();
-//  MX_RTC_Init
+  //  MX_RTC_Init
   /* USER CODE BEGIN 2 */
   vIWDG_Init(&hiwdg, 5000);
   __RETARGET_INIT(DEBUG_USART);
@@ -141,19 +144,28 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  HAL_Delay(500);
+  PRINTF("################################################################################################\r\n");
+  PRINTF("Project name: [PWM]Motor_Control\r\n");
+  PRINTF("**********************************SHORT DESCRIPTION******************************\r\n");
+  PRINTF("This project utilizes L298N module to concurrently control 2 DC motors by modulating PWM signal\r\n");
+  PRINTF("*********************************************************************************\r\n");
+  PRINTF("Run Application\r\n");
+  prev_time_blinkled = HAL_GetTick();
   while (1)
   {
-    newline;
-    vTimeStamp(HAL_GetTick());
+    /* Task 500ms */
+    if (HAL_GetTick() - prev_time_blinkled >= BLINK_LED_FREQ){
+      prev_time_blinkled = HAL_GetTick();
+      __MY_TOGGLE_LED(LED_2);
+    }
 
-    /* ADC value */
+    vTimeStamp(HAL_GetTick());
+    /* Print Var-register ADC value */
     PRINT_VAR((uint32_t)adc1_data_buffer[0]);
-    /* Remap speed value to be in range 0-100 */
+    /* Remap speed value to be in range of 0-100 */
     speed = (int)(((float)adc1_data_buffer[0] / 4096) * TIM_PWM_OVERFLOW_VALUE);
     /* Control motor speed accordingly */
     motorControl(speed, rotate_direction, motor_select);
-    __MY_TOGGLE_LED(LED_2);
     HAL_Delay(50);
     HAL_IWDG_Refresh(&hiwdg);
   }
